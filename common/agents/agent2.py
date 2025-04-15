@@ -6,67 +6,60 @@ from common.move import Move
 SCIPERS = ["399767", "399484"]
 
 class Agent(BaseAgent):
+    visited_delivery_positions = set()
+    delivery_mode = False
+    initialized = False
+    max_wagons = 3
+
     def get_move(self):
-        # Position actuelle et direction
+        # Initialisation unique
+        if not self.initialized:
+            self.visited_delivery_positions = set()
+            self.delivery_mode = False
+            self.initialized = True
+
         x, y = self.all_trains[self.nickname]['position']
         delta_x, delta_y = self.all_trains[self.nickname]['direction']
         grid_width = self.game_width
         grid_height = self.game_height
         cell_size = self.cell_size
-        
-        # Récupérer le nombre de wagons actuel
-        current_wagons = len(self.all_trains[self.nickname].get('wagons', []))
-        
-        # Définir un seuil à partir duquel on se dirige vers la zone de livraison
-        WAGONS_THRESHOLD = 5  # À ajuster selon vos préférences
-        
-        # Définition des déplacements
+
         move_deltas = {
             Move.UP: (0, -cell_size),
             Move.DOWN: (0, cell_size),
             Move.LEFT: (-cell_size, 0),
             Move.RIGHT: (cell_size, 0),
         }
-        
-        # Collecte de toutes les positions des wagons pour éviter les collisions
+
+        # Positions à éviter
         positions_to_avoid = []
-        for train_name, train_data in self.all_trains.items():
-            # Ajouter les positions des wagons de tous les trains
-            if 'wagons' in train_data:
-                positions_to_avoid.extend(train_data['wagons'])
-        
-        # Prédire les prochaines positions des autres trains
+        for train_data in self.all_trains.values():
+            positions_to_avoid.extend(train_data.get('wagons', []))
+            positions_to_avoid.append(train_data['position'])
         for train_name, train_data in self.all_trains.items():
             if train_name != self.nickname and train_data.get('alive', True):
                 train_pos = train_data['position']
                 train_dir = train_data['direction']
-                # Calculer la prochaine position prévue de ce train
                 next_pos = (
                     train_pos[0] + train_dir[0] * cell_size,
                     train_pos[1] + train_dir[1] * cell_size
                 )
                 positions_to_avoid.append(next_pos)
-                # Ajouter aussi la position actuelle du train
-                positions_to_avoid.append(train_pos)
-        
-        # Vérifier les mouvements valides (éviter les murs)
+
+        # Mouvements valides
         valid_moves = []
         for move, delta in move_deltas.items():
-            new_x = x + delta[0]
-            new_y = y + delta[1]
-            new_pos = (new_x, new_y)
-            if 0 <= new_x < grid_width and 0 <= new_y < grid_height and new_pos not in positions_to_avoid:
-                # Vérifier si la nouvelle position ne contient pas de wagon
+            nx, ny = x + delta[0], y + delta[1]
+            if 0 <= nx < grid_width and 0 <= ny < grid_height and (nx, ny) not in positions_to_avoid:
                 valid_moves.append(move)
-        
-        # Éviter de faire demi-tour
+
+        # Éviter demi-tour
         current_direction = None
         opposite_direction = None
         for move, delta in move_deltas.items():
-            if delta == (delta_x * self.cell_size, delta_y * self.cell_size):
+            if delta == (delta_x * cell_size, delta_y * cell_size):
                 current_direction = move
                 break
-        
         if current_direction:
             opposite_moves = {
                 Move.UP: Move.DOWN,
@@ -75,52 +68,90 @@ class Agent(BaseAgent):
                 Move.RIGHT: Move.LEFT,
             }
             opposite_direction = opposite_moves.get(current_direction)
-            # Retirer le mouvement opposé des mouvements valides
             if opposite_direction in valid_moves:
                 valid_moves.remove(opposite_direction)
-        
-        # Si aucun mouvement valide n'est disponible
         if not valid_moves:
-            # Continuer tout droit (dans la direction actuelle) même si cela mène à une collision
             if current_direction:
                 return current_direction
-            # Si pour une raison quelconque, nous n'avons pas de direction actuelle,
-            # choisir n'importe quel mouvement sauf le demi-tour
             possible_moves = [move for move in Move if move != opposite_direction]
             return random.choice(possible_moves)
+
+        # Récupérer le nombre de wagons actuel
+        current_wagons = len(self.all_trains[self.nickname].get('wagons', []))
         
-        # Récupérer la position de la zone de livraison
-        delivery_zone_pos = None
-        delivery_zone_width = 0
-        delivery_zone_height = 0
-        
-        if hasattr(self, 'delivery_zone'):
-            delivery_zone_pos = (self.delivery_zone['position'][0], self.delivery_zone['position'][1])
-            delivery_zone_width = self.delivery_zone['width']
-            delivery_zone_height = self.delivery_zone['height']
-        
-        # Décider si on va chercher des passagers ou si on va déposer des wagons
-        if current_wagons >= WAGONS_THRESHOLD and delivery_zone_pos is not None:
-            # Calcul du centre de la zone de livraison
-            target_x = delivery_zone_pos[0] + delivery_zone_width // 2
-            target_y = delivery_zone_pos[1] + delivery_zone_height // 2
+        # Activer le mode livraison si assez de wagons
+        if current_wagons >= self.max_wagons:
+            self.delivery_mode = True
+
+        # Vérifier si on est dans une zone de livraison
+        in_delivery_zone = False
+        zone_in = None
+        if hasattr(self, '') and self.delivery_zone:  # CORRECTION:  (pluriel)
+            for zone in self.delivery_zone:
+                zx, zy = zone["position"]
+                zw, zh = zone["width"], zone["height"]
+                if zx <= x < zx + zw and zy <= y < zy + zh:
+                    in_delivery_zone = True
+                    zone_in = zone
+                    self.visited_delivery_positions.add((x, y))
+                    break
+
+        # Si en livraison et dans la zone, larguer des wagons et visiter plusieurs cases
+        if self.delivery_mode:
+            if in_delivery_zone and zone_in is not None:
+                # NOUVEAU: Lorsque dans la zone, larguer un wagon si possible
+                if current_wagons > 0 and hasattr(self, 'drop_wagon'):
+                    self.drop_wagon()
+                
+                # Si on a visité assez de positions dans la zone, désactiver mode livraison
+                if len(self.visited_delivery_positions) >= 2:
+                    self.delivery_mode = False
+                    self.visited_delivery_positions = set()
+                # Sinon explorer la zone pour visiter d'autres cases
+                else:
+                    # Chercher à visiter une nouvelle case dans la zone
+                    zx, zy = zone_in["position"]
+                    zw, zh = zone_in["width"], zone_in["height"]
+                    unvisited_moves = []
+                    
+                    for move, (dx, dy) in move_deltas.items():
+                        nx, ny = x + dx, y + dy
+                        new_pos = (nx, ny)
+                        # Vérifier que la position est dans la zone de livraison
+                        if (zx <= nx < zx + zw and zy <= ny < zy + zh and
+                            new_pos not in self.visited_delivery_positions and
+                            move in valid_moves):
+                            unvisited_moves.append(move)
+                    
+                    if unvisited_moves:
+                        return random.choice(unvisited_moves)
             
-            # Utiliser A* pour trouver un chemin vers la zone de livraison
-            start = (x, y)
-            goal = (target_x, target_y)
-            path = self.a_star(start, goal, grid_width, grid_height, cell_size)
-            
-            if path and len(path) > 1:
-                next_step = path[1]
-                dx = next_step[0] - x
-                dy = next_step[1] - y
-                for move, (mdx, mdy) in move_deltas.items():
-                    if (dx, dy) == (mdx, mdy) and move in valid_moves:
-                        return move
-        
-        # Si on n'a pas assez de wagons ou si on n'a pas trouvé de chemin vers la zone de livraison,
-        # on cherche les passagers comme avant
-        if valid_moves and self.passengers:
+            # Si on n'est pas dans une zone de livraison mais en mode livraison
+            else:
+                # Aller au centre de la zone la plus proche
+                min_dist = float('inf')
+                target = None
+                
+                for zone in self.delivery_zone:  # CORRECTION:  (pluriel)
+                    print("zone:", zone, type(zone))
+                    zx, zy = zone["position"]
+                    zw, zh = zone["width"], zone["height"]
+                    cx, cy = zx + zw // 2, zy + zh // 2
+                    dist = abs(cx - x) + abs(cy - y)
+                    if dist < min_dist:
+                        min_dist = dist
+                        target = (cx, cy)
+                
+                if target:
+                    path = self.a_star((x, y), target, grid_width, grid_height, cell_size)
+                    if path and len(path) > 1:
+                        nx, ny = path[1]
+                        for move, (dx, dy) in move_deltas.items():
+                            if (x + dx, y + dy) == (nx, ny) and move in valid_moves:
+                                return move
+
+        # Si pas en livraison ou livraison terminée, chercher un passager
+        if valid_moves and hasattr(self, 'passengers') and self.passengers:
             start = (x, y)
             closest_passenger = min(
                 self.passengers,
@@ -128,7 +159,7 @@ class Agent(BaseAgent):
             )
             goal = closest_passenger["position"]
             path = self.a_star(start, goal, grid_width, grid_height, cell_size)
-            
+
             if path and len(path) > 1:
                 next_step = path[1]
                 dx = next_step[0] - x
@@ -136,11 +167,8 @@ class Agent(BaseAgent):
                 for move, (mdx, mdy) in move_deltas.items():
                     if (dx, dy) == (mdx, mdy) and move in valid_moves:
                         return move
-        
+
         # Fallback : mouvement valide aléatoire
-        if not valid_moves:
-            return random.choice(list(Move))
-        
         return random.choice(valid_moves)
 
     def a_star(self, start, goal, grid_width, grid_height, cell_size):
