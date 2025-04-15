@@ -208,4 +208,4 @@ class Agent(BaseAgent):
                     f_score[neighbor] = tentative_g + heuristic(neighbor, goal)
                     heapq.heappush(open_set, (f_score[neighbor], neighbor))
 
-        return []  # Aucun chemin trouvé
+        return []  # Aucun chemin
