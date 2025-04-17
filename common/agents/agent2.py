@@ -105,11 +105,11 @@ class Agent(BaseAgent):
             # Décider si on doit livrer ou ramasser des passagers
             if len(self.all_trains[self.nickname]['wagons']) >= 1 and dist_to_zone < dist_to_passenger:
                 delivery_mode = True
-            if len(self.all_trains[self.nickname]['wagons']) >= 5 and dist_to_zone > dist_to_passenger:
+            if len(self.all_trains[self.nickname]['wagons']) >= 6 and dist_to_zone > dist_to_passenger:
                 delivery_mode = False
-            if len(self.all_trains[self.nickname]['wagons']) >= 5 and dist_to_zone < dist_to_passenger:
+            if len(self.all_trains[self.nickname]['wagons']) >= 6 and dist_to_zone < dist_to_passenger:
                 delivery_mode = True
-            if len(self.all_trains[self.nickname]['wagons']) >= 8:
+            if len(self.all_trains[self.nickname]['wagons']) >= 6:
                 delivery_mode = True
                 
             if delivery_mode:
