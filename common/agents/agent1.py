@@ -90,15 +90,38 @@ class Agent(BaseAgent):
                 self.passengers,
                 key=lambda p: abs(p["position"][0] - x) + abs(p["position"][1] - y)
             )
+            
+            # Trouver la zone de livraison la plus proche
+            if hasattr(self, 'delivery_zone'):
+                closest_zone = self.delivery_zone
+            else:
+                # Fallback si aucune zone de livraison n'est définie
+                closest_zone = {"position": (grid_width // 2, grid_height // 2)}
+            
             delivery_mode = False
-            if len(self.all_trains[self.nickname]['wagons']) > 5:
+            dist_to_zone = abs(closest_zone['position'][0] - x) + abs(closest_zone['position'][1] - y)
+            dist_to_passenger = abs(closest_passenger['position'][0] - x) + abs(closest_passenger['position'][1] - y)
+            
+            # Décider si on doit livrer ou ramasser des passagers
+            if len(self.all_trains[self.nickname]['wagons']) >= 1 and dist_to_zone < dist_to_passenger:
                 delivery_mode = True
-            if delivery_mode:
-                goal = self.delivery_zone['position']
-            if self.all_trains[self.nickname]['wagons'] == 0:
+            if len(self.all_trains[self.nickname]['wagons']) >= 5 and dist_to_zone > dist_to_passenger:
                 delivery_mode = False
-            if delivery_mode is False:
+            if len(self.all_trains[self.nickname]['wagons']) >= 5 and dist_to_zone < dist_to_passenger:
+                delivery_mode = True
+            if len(self.all_trains[self.nickname]['wagons']) >= 6:
+                delivery_mode = True
+                
+            if delivery_mode:
+                goal = closest_zone['position']
+            else:
                 goal = closest_passenger["position"]
+                
+            # Réinitialiser le mode livraison si on n'a pas de wagons
+            if len(self.all_trains[self.nickname]['wagons']) == 0:
+                delivery_mode = False
+                goal = closest_passenger["position"]
+                
             path = self.a_star(start, goal, grid_width, grid_height, cell_size)
 
             if path and len(path) > 1:

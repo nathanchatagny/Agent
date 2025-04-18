@@ -83,47 +83,118 @@ class Agent(BaseAgent):
             possible_moves = [move for move in Move if move != opposite_direction]
             return random.choice(possible_moves)
 
-        # === Ajout A* vers le passager le plus proche ===
-        if valid_moves and self.passengers:
+        # === Ajout du mode défensif ===
+        # Trouver l'autre train et comparer les nombres de wagons
+        other_train = None
+        my_wagons_count = len(self.all_trains[self.nickname]['wagons'])
+        
+        for train_name, train_data in self.all_trains.items():
+            if train_name != self.nickname and train_data.get('alive', True):
+                other_train = train_data
+                break
+        
+        # Activation du mode défensif si on a suffisamment d'avantage
+        defensive_mode = False
+        if other_train:
+            other_wagons_count = len(other_train.get('wagons', []))
+            # Si on a 3+ wagons de plus que l'adversaire, activer le mode défensif
+            if my_wagons_count - other_wagons_count >= 3:
+                defensive_mode = True
+        
+        # === Ajout A* vers le passager le plus proche ou la zone de défense ===
+        if valid_moves:
             start = (x, y)
             closest_passenger = min(
                 self.passengers,
                 key=lambda p: abs(p["position"][0] - x) + abs(p["position"][1] - y)
-            )
+            ) if self.passengers else None
             
-            # Trouver la zone de livraison la plus proche
+            # Trouver la zone de livraison
             if hasattr(self, 'delivery_zone'):
                 closest_zone = self.delivery_zone
             else:
                 # Fallback si aucune zone de livraison n'est définie
                 closest_zone = {"position": (grid_width // 2, grid_height // 2)}
             
+            # Stratégie de mouvement basée sur le mode
             delivery_mode = False
-            dist_to_zone = abs(closest_zone['position'][0] - x) + abs(closest_zone['position'][1] - y)
-            dist_to_passenger = abs(closest_passenger['position'][0] - x) + abs(closest_passenger['position'][1] - y)
+            defensive_patrol = False
             
-            # Décider si on doit livrer ou ramasser des passagers
-            if len(self.all_trains[self.nickname]['wagons']) >= 1 and dist_to_zone < dist_to_passenger:
-                delivery_mode = True
-            if len(self.all_trains[self.nickname]['wagons']) >= 6 and dist_to_zone > dist_to_passenger:
-                delivery_mode = False
-            if len(self.all_trains[self.nickname]['wagons']) >= 6 and dist_to_zone < dist_to_passenger:
-                delivery_mode = True
-            if len(self.all_trains[self.nickname]['wagons']) > 7:
-                delivery_mode = True
-            if len(self.all_trains[self.nickname]['wagons']) > 7:
-                self.drop_wagon = True
-                
-            if delivery_mode:
-                goal = closest_zone['position']
+            # En mode défensif, si on a moins de 9 wagons, continuer à collecter
+            # sinon, patrouiller autour de la zone de livraison
+            if defensive_mode:
+                if my_wagons_count >= 9:
+                    defensive_patrol = True
+                else:
+                    # On continue à collecter des passagers pour atteindre 9 wagons
+                    if closest_passenger:
+                        goal = closest_passenger["position"]
+                    else:
+                        # S'il n'y a plus de passagers, rester près de la zone de livraison
+                        goal = closest_zone['position']
+                        defensive_patrol = True
             else:
-                goal = closest_passenger["position"]
+                # Logique originale
+                dist_to_zone = abs(closest_zone['position'][0] - x) + abs(closest_zone['position'][1] - y)
+                if closest_passenger:
+                    dist_to_passenger = abs(closest_passenger['position'][0] - x) + abs(closest_passenger['position'][1] - y)
+                    
+                    # Décider si on doit livrer ou ramasser des passagers
+                    if my_wagons_count >= 1 and dist_to_zone < dist_to_passenger:
+                        delivery_mode = True
+                    if my_wagons_count >= 5:
+                        delivery_mode = True
+                        
+                    if delivery_mode:
+                        goal = closest_zone['position']
+                    else:
+                        goal = closest_passenger["position"]
+                else:
+                    # S'il n'y a plus de passagers, se diriger vers la zone de livraison
+                    goal = closest_zone['position']
+                    
+                # Réinitialiser le mode livraison si on n'a pas de wagons
+                if my_wagons_count == 0:
+                    delivery_mode = False
+                    if closest_passenger:
+                        goal = closest_passenger["position"]
+                    else:
+                        # S'il n'y a plus de passagers, se diriger vers la zone de livraison
+                        goal = closest_zone['position']
+            
+            # Mode de patrouille défensive autour de la zone de livraison
+            if defensive_patrol:
+                # Définir les positions de patrouille autour de la zone de livraison
+                # Supposons que delivery_zone est un point (x, y)
+                zone_x, zone_y = closest_zone['position']
                 
-            # Réinitialiser le mode livraison si on n'a pas de wagons
-            if len(self.all_trains[self.nickname]['wagons']) == 0:
-                delivery_mode = False
-                goal = closest_passenger["position"]
+                # Créer un chemin de patrouille autour de la zone
+                patrol_positions = [
+                    (zone_x - cell_size, zone_y - cell_size),  # Haut gauche
+                    (zone_x, zone_y - cell_size),              # Haut
+                    (zone_x + cell_size, zone_y - cell_size),  # Haut droite
+                    (zone_x + cell_size, zone_y),              # Droite
+                    (zone_x + cell_size, zone_y + cell_size),  # Bas droite
+                    (zone_x, zone_y + cell_size),              # Bas
+                    (zone_x - cell_size, zone_y + cell_size),  # Bas gauche
+                    (zone_x - cell_size, zone_y),              # Gauche
+                ]
                 
+                # Trouver le point de patrouille le plus proche qui n'est pas notre position actuelle
+                valid_patrol_positions = [pos for pos in patrol_positions if 
+                                        0 <= pos[0] < grid_width and 
+                                        0 <= pos[1] < grid_height and
+                                        pos != (x, y)]
+                
+                if valid_patrol_positions:
+                    closest_patrol_point = min(valid_patrol_positions, 
+                                            key=lambda p: abs(p[0] - x) + abs(p[1] - y))
+                    goal = closest_patrol_point
+                else:
+                    # Si aucun point de patrouille n'est valide, aller vers la zone elle-même
+                    goal = closest_zone['position']
+            
+            # Utiliser A* pour trouver le chemin vers l'objectif
             path = self.a_star(start, goal, grid_width, grid_height, cell_size)
 
             if path and len(path) > 1:
@@ -139,7 +210,7 @@ class Agent(BaseAgent):
             return random.choice(list(Move))
 
         return random.choice(valid_moves)
-
+    
     def a_star(self, start, goal, grid_width, grid_height, cell_size):
         def heuristic(a, b):
             return abs(a[0] - b[0]) + abs(a[1] - b[1])  # Manhattan
