@@ -8,8 +8,8 @@ SCIPERS = ["399767", "399484"]
 class Agent(BaseAgent):
     def get_move(self):
         # Position actuelle et direction
-        x, y = self.all_trains[self.nickname]['position']
-        delta_x, delta_y = self.all_trains[self.nickname]['direction']
+        x, y = self.all_trains[self.nickname]["position"]
+        delta_x, delta_y = self.all_trains[self.nickname]["direction"]
         grid_width = self.game_width
         grid_height = self.game_height
         cell_size = self.cell_size
@@ -26,14 +26,14 @@ class Agent(BaseAgent):
         positions_to_avoid = []
         for train_name, train_data in self.all_trains.items():
             # Ajouter les positions des wagons de tous les trains
-            if 'wagons' in train_data:
-                positions_to_avoid.extend(train_data['wagons'])
+            if "wagons" in train_data:
+                positions_to_avoid.extend(train_data["wagons"])
             
         # Prédire les prochaines positions des autres trains
         for train_name, train_data in self.all_trains.items():
-            if train_name != self.nickname and train_data.get('alive', True):
-                train_pos = train_data['position']
-                train_dir = train_data['direction']
+            if train_name != self.nickname and train_data.get("alive", True):
+                train_pos = train_data["position"]
+                train_dir = train_data["direction"]
                 # Calculer la prochaine position prévue de ce train
                 next_pos = (
                     train_pos[0] + train_dir[0] * cell_size,
@@ -73,13 +73,13 @@ class Agent(BaseAgent):
             if opposite_direction in valid_moves:
                 valid_moves.remove(opposite_direction)
 
-        # Si aucun mouvement valide n'est disponible
+        # Si aucun mouvement valide n"est disponible
         if not valid_moves:
             # Continuer tout droit (dans la direction actuelle) même si cela mène à une collision
             if current_direction:
                 return current_direction
-            # Si pour une raison quelconque, nous n'avons pas de direction actuelle,
-            # choisir n'importe quel mouvement sauf le demi-tour
+            # Si pour une raison quelconque, nous n"avons pas de direction actuelle,
+            # choisir n"importe quel mouvement sauf le demi-tour
             possible_moves = [move for move in Move if move != opposite_direction]
             return random.choice(possible_moves)
 
@@ -92,33 +92,33 @@ class Agent(BaseAgent):
             )
             
             # Trouver la zone de livraison la plus proche
-            if hasattr(self, 'delivery_zone'):
+            if hasattr(self, "delivery_zone"):
                 closest_zone = self.delivery_zone
             else:
-                # Fallback si aucune zone de livraison n'est définie
+                # Fallback si aucune zone de livraison n"est définie
                 closest_zone = {"position": (grid_width // 2, grid_height // 2)}
             
             delivery_mode = False
-            dist_to_zone = abs(closest_zone['position'][0] - x) + abs(closest_zone['position'][1] - y)
-            dist_to_passenger = abs(closest_passenger['position'][0] - x) + abs(closest_passenger['position'][1] - y)
+            dist_to_zone = abs(closest_zone["position"][0] - x) + abs(closest_zone["position"][1] - y)
+            dist_to_passenger = abs(closest_passenger["position"][0] - x) + abs(closest_passenger["position"][1] - y)
             
             # Décider si on doit livrer ou ramasser des passagers
-            if len(self.all_trains[self.nickname]['wagons']) >= 1 and dist_to_zone < dist_to_passenger:
+            if len(self.all_trains[self.nickname]["wagons"]) >= 1 and dist_to_zone < dist_to_passenger:
                 delivery_mode = True
-            if len(self.all_trains[self.nickname]['wagons']) >= 5 and dist_to_zone > dist_to_passenger:
+            if len(self.all_trains[self.nickname]["wagons"]) >= 5 and dist_to_zone > dist_to_passenger:
                 delivery_mode = False
-            if len(self.all_trains[self.nickname]['wagons']) >= 5 and dist_to_zone < dist_to_passenger:
+            if len(self.all_trains[self.nickname]["wagons"]) >= 5 and dist_to_zone < dist_to_passenger:
                 delivery_mode = True
-            if len(self.all_trains[self.nickname]['wagons']) >= 6:
+            if len(self.all_trains[self.nickname]["wagons"]) >= 6:
                 delivery_mode = True
                 
             if delivery_mode:
-                goal = closest_zone['position']
+                goal = closest_zone["position"]
             else:
                 goal = closest_passenger["position"]
                 
-            # Réinitialiser le mode livraison si on n'a pas de wagons
-            if len(self.all_trains[self.nickname]['wagons']) == 0:
+            # Réinitialiser le mode livraison si on n"a pas de wagons
+            if len(self.all_trains[self.nickname]["wagons"]) == 0:
                 delivery_mode = False
                 goal = closest_passenger["position"]
                 

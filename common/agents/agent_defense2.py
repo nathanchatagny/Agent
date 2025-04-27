@@ -8,8 +8,8 @@ SCIPERS = ["399767", "399484"]
 class Agent(BaseAgent):
     def get_move(self):
         # Position actuelle et direction
-        x, y = self.all_trains[self.nickname]['position']
-        delta_x, delta_y = self.all_trains[self.nickname]['direction']
+        x, y = self.all_trains[self.nickname]["position"]
+        delta_x, delta_y = self.all_trains[self.nickname]["direction"]
         grid_width = self.game_width
         grid_height = self.game_height
         cell_size = self.cell_size
@@ -26,14 +26,14 @@ class Agent(BaseAgent):
         positions_to_avoid = []
         for train_name, train_data in self.all_trains.items():
             # Ajouter les positions des wagons de tous les trains
-            if 'wagons' in train_data:
-                positions_to_avoid.extend(train_data['wagons'])
+            if "wagons" in train_data:
+                positions_to_avoid.extend(train_data["wagons"])
             
         # Prédire les prochaines positions des autres trains
         for train_name, train_data in self.all_trains.items():
-            if train_name != self.nickname and train_data.get('alive', True):
-                train_pos = train_data['position']
-                train_dir = train_data['direction']
+            if train_name != self.nickname and train_data.get("alive", True):
+                train_pos = train_data["position"]
+                train_dir = train_data["direction"]
                 # Calculer la prochaine position prévue de ce train
                 next_pos = (
                     train_pos[0] + train_dir[0] * cell_size,
@@ -73,31 +73,31 @@ class Agent(BaseAgent):
             if opposite_direction in valid_moves:
                 valid_moves.remove(opposite_direction)
 
-        # Si aucun mouvement valide n'est disponible
+        # Si aucun mouvement valide n"est disponible
         if not valid_moves:
             # Continuer tout droit (dans la direction actuelle) même si cela mène à une collision
             if current_direction:
                 return current_direction
-            # Si pour une raison quelconque, nous n'avons pas de direction actuelle,
-            # choisir n'importe quel mouvement sauf le demi-tour
+            # Si pour une raison quelconque, nous n"avons pas de direction actuelle,
+            # choisir n"importe quel mouvement sauf le demi-tour
             possible_moves = [move for move in Move if move != opposite_direction]
             return random.choice(possible_moves)
 
         # === Ajout du mode défensif ===
-        # Trouver l'autre train et comparer les nombres de wagons
+        # Trouver l"autre train et comparer les nombres de wagons
         other_train = None
-        my_wagons_count = len(self.all_trains[self.nickname]['wagons'])
+        my_wagons_count = len(self.all_trains[self.nickname]["wagons"])
         
         for train_name, train_data in self.all_trains.items():
-            if train_name != self.nickname and train_data.get('alive', True):
+            if train_name != self.nickname and train_data.get("alive", True):
                 other_train = train_data
                 break
         
-        # Activation du mode défensif si on a suffisamment d'avantage
+        # Activation du mode défensif si on a suffisamment d"avantage
         defensive_mode = False
         if other_train:
-            other_wagons_count = len(other_train.get('wagons', []))
-            # Si on a 3+ wagons de plus que l'adversaire, activer le mode défensif
+            other_wagons_count = len(other_train.get("wagons", []))
+            # Si on a 3+ wagons de plus que l"adversaire, activer le mode défensif
             if my_wagons_count - other_wagons_count >= 3:
                 defensive_mode = True
         
@@ -110,10 +110,10 @@ class Agent(BaseAgent):
             ) if self.passengers else None
             
             # Trouver la zone de livraison
-            if hasattr(self, 'delivery_zone'):
+            if hasattr(self, "delivery_zone"):
                 closest_zone = self.delivery_zone
             else:
-                # Fallback si aucune zone de livraison n'est définie
+                # Fallback si aucune zone de livraison n"est définie
                 closest_zone = {"position": (grid_width // 2, grid_height // 2)}
             
             # Stratégie de mouvement basée sur le mode
@@ -130,14 +130,14 @@ class Agent(BaseAgent):
                     if closest_passenger:
                         goal = closest_passenger["position"]
                     else:
-                        # S'il n'y a plus de passagers, rester près de la zone de livraison
-                        goal = closest_zone['position']
+                        # S"il n"y a plus de passagers, rester près de la zone de livraison
+                        goal = closest_zone["position"]
                         defensive_patrol = True
             else:
                 # Logique originale
-                dist_to_zone = abs(closest_zone['position'][0] - x) + abs(closest_zone['position'][1] - y)
+                dist_to_zone = abs(closest_zone["position"][0] - x) + abs(closest_zone["position"][1] - y)
                 if closest_passenger:
-                    dist_to_passenger = abs(closest_passenger['position'][0] - x) + abs(closest_passenger['position'][1] - y)
+                    dist_to_passenger = abs(closest_passenger["position"][0] - x) + abs(closest_passenger["position"][1] - y)
                     
                     # Décider si on doit livrer ou ramasser des passagers
                     if my_wagons_count >= 1 and dist_to_zone < dist_to_passenger:
@@ -150,28 +150,28 @@ class Agent(BaseAgent):
                         delivery_mode = True
                         
                     if delivery_mode:
-                        goal = closest_zone['position']
+                        goal = closest_zone["position"]
                     else:
                         goal = closest_passenger["position"]
                 else:
-                    # S'il n'y a plus de passagers, se diriger vers la zone de livraison
-                    goal = closest_zone['position']
+                    # S"il n"y a plus de passagers, se diriger vers la zone de livraison
+                    goal = closest_zone["position"]
                     
-                # Réinitialiser le mode livraison si on n'a pas de wagons
+                # Réinitialiser le mode livraison si on n"a pas de wagons
                 if my_wagons_count == 0:
                     delivery_mode = False
                     if closest_passenger:
                         goal = closest_passenger["position"]
                     else:
-                        # S'il n'y a plus de passagers, se diriger vers la zone de livraison
-                        goal = closest_zone['position']
+                        # S"il n"y a plus de passagers, se diriger vers la zone de livraison
+                        goal = closest_zone["position"]
             
             # Mode de patrouille défensive autour de la zone de livraison
             if defensive_patrol:
                 # Obtenir les données de la zone de livraison
-                zone_x, zone_y = closest_zone['position']
-                zone_width = closest_zone.get('width', cell_size)  # Largeur de 40 pixels
-                zone_height = closest_zone.get('height', cell_size)  # Hauteur de 20 pixels
+                zone_x, zone_y = closest_zone["position"]
+                zone_width = closest_zone.get("width", cell_size)  # Largeur de 40 pixels
+                zone_height = closest_zone.get("height", cell_size)  # Hauteur de 20 pixels
                 
                 # Créer un chemin de patrouille autour de la zone de livraison
                 # en tenant compte de ses dimensions réelles
@@ -196,7 +196,7 @@ class Agent(BaseAgent):
                     (zone_x - cell_size, zone_y)
                 ]
                 
-                # Trouver le point de patrouille le plus proche qui n'est pas notre position actuelle
+                # Trouver le point de patrouille le plus proche qui n"est pas notre position actuelle
                 valid_patrol_positions = [pos for pos in patrol_positions if 
                                         0 <= pos[0] < grid_width and 
                                         0 <= pos[1] < grid_height and
@@ -208,7 +208,7 @@ class Agent(BaseAgent):
                                             key=lambda p: abs(p[0] - x) + abs(p[1] - y))
                     goal = closest_patrol_point
                 else:
-                    # Si aucun point de patrouille n'est valide, aller vers un point juste devant la zone
+                    # Si aucun point de patrouille n"est valide, aller vers un point juste devant la zone
                     backup_points = [
                         (zone_x - cell_size, zone_y),              # Gauche
                         (zone_x, zone_y - cell_size),              # Haut
@@ -225,7 +225,7 @@ class Agent(BaseAgent):
                         # En dernier recours, se diriger vers le centre de la zone
                         goal = (zone_x + zone_width // 2, zone_y + zone_height // 2)
             
-            # Utiliser A* pour trouver le chemin vers l'objectif
+            # Utiliser A* pour trouver le chemin vers l"objectif
             path = self.a_star(start, goal, grid_width, grid_height, cell_size)
 
             if path and len(path) > 1:

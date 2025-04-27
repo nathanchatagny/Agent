@@ -8,8 +8,8 @@ SCIPERS = ["399767", "399484"]
 
 class Agent(BaseAgent):
     def get_move(self):
-        x, y = self.all_trains[self.nickname]['position']
-        delta_x, delta_y = self.all_trains[self.nickname]['direction']
+        x, y = self.all_trains[self.nickname]["position"]
+        delta_x, delta_y = self.all_trains[self.nickname]["direction"]
         grid_width = self.game_width
         grid_height = self.game_height
         cell_size = self.cell_size
@@ -23,13 +23,13 @@ class Agent(BaseAgent):
 
         positions_to_avoid = []
         for train_name, train_data in self.all_trains.items():
-            if 'wagons' in train_data:
-                positions_to_avoid.extend(train_data['wagons'])
+            if "wagons" in train_data:
+                positions_to_avoid.extend(train_data["wagons"])
 
         for train_name, train_data in self.all_trains.items():
-            if train_name != self.nickname and train_data.get('alive', True):
-                train_pos = train_data['position']
-                train_dir = train_data['direction']
+            if train_name != self.nickname and train_data.get("alive", True):
+                train_pos = train_data["position"]
+                train_dir = train_data["direction"]
                 next_pos = (
                     train_pos[0] + train_dir[0] * cell_size,
                     train_pos[1] + train_dir[1] * cell_size
@@ -68,13 +68,13 @@ class Agent(BaseAgent):
         # ==== MODIF: Mode défensif basé sur le score ====
         high_scores = HighScore()
         my_score = high_scores.get_from_nickname(self.nickname)
-        my_wagons_count = len(self.all_trains[self.nickname]['wagons'])
+        my_wagons_count = len(self.all_trains[self.nickname]["wagons"])
 
         other_train = None
         defensive_mode = False
 
         for train_name, train_data in self.all_trains.items():
-            if train_name != self.nickname and train_data.get('alive', True):
+            if train_name != self.nickname and train_data.get("alive", True):
                 other_train = train_data
                 other_score = high_scores.get_from_nickname(train_name)
                 if my_score > other_score:
@@ -88,7 +88,7 @@ class Agent(BaseAgent):
                 key=lambda p: abs(p["position"][0] - x) + abs(p["position"][1] - y)
             )
 
-            closest_zone = getattr(self, 'delivery_zone', {"position": (grid_width // 2, grid_height // 2)})
+            closest_zone = getattr(self, "delivery_zone", {"position": (grid_width // 2, grid_height // 2)})
 
             delivery_mode = False
             defensive_patrol = False
@@ -97,11 +97,11 @@ class Agent(BaseAgent):
                 if my_wagons_count >= 9:
                     defensive_patrol = True
                 else:
-                    goal = closest_passenger["position"] if closest_passenger else closest_zone['position']
+                    goal = closest_passenger["position"] if closest_passenger else closest_zone["position"]
                     defensive_patrol = not bool(closest_passenger)
             else:
-                dist_zone = abs(closest_zone['position'][0] - x) + abs(closest_zone['position'][1] - y)
-                dist_pass = abs(closest_passenger['position'][0] - x) + abs(closest_passenger['position'][1] - y)
+                dist_zone = abs(closest_zone["position"][0] - x) + abs(closest_zone["position"][1] - y)
+                dist_pass = abs(closest_passenger["position"][0] - x) + abs(closest_passenger["position"][1] - y)
 
                 if my_wagons_count >= 1 and dist_zone < dist_pass:
                     delivery_mode = True
@@ -110,7 +110,7 @@ class Agent(BaseAgent):
                 if my_wagons_count >= 6:
                     delivery_mode = True
 
-                goal = closest_zone['position'] if delivery_mode else closest_passenger["position"]
+                goal = closest_zone["position"] if delivery_mode else closest_passenger["position"]
 
             if my_wagons_count == 0 and closest_passenger:
                 delivery_mode = False
@@ -118,9 +118,9 @@ class Agent(BaseAgent):
 
             # ==== MODIF: Patrouille défensive autour mais pas dedans ====
             if defensive_patrol:
-                zone_x, zone_y = closest_zone['position']
-                zone_width = closest_zone.get('width', cell_size)
-                zone_height = closest_zone.get('height', cell_size)
+                zone_x, zone_y = closest_zone["position"]
+                zone_width = closest_zone.get("width", cell_size)
+                zone_height = closest_zone.get("height", cell_size)
 
                 patrol_positions = [
                     (zone_x - cell_size, zone_y - cell_size),
